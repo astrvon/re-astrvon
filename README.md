@@ -65,12 +65,11 @@ See [Contributing Guide](CONTRIBUTING.md).
 
 ---
 
-### Build By
+<div align="center">
 
-<div style="display: flex; justify-content: left; align-items: center; gap: 12px; height: auto; width: 100%">
+### Build with 💖 by
 
-<img src="https://avatars.githubusercontent.com/u/108639591?v=4" alt="adhxabre-profile-img" style="border-radius: 50%" width="32">
-
-## [adhxabre](https://github.com/adhxabre)
+[![astrvon's Avatar](https://images.weserv.nl/?url=https://avatars.githubusercontent.com/u/108639591?v=4&h=64&w=64&fit=cover&mask=circle&maxage=7d)](https://github.com/astrvon)
+[![apirJS's Avatar](https://images.weserv.nl/?url=https://avatars.githubusercontent.com/u/88275017?v=4&h=64&w=64&fit=cover&mask=circle&maxage=7d)](https://github.com/apirJS)
 
 </div>
