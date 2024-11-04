@@ -1,0 +1,386 @@
+import {
+  SlashCommandBuilder,
+  CommandInteraction,
+  ActionRowBuilder,
+  EmbedBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChatInputCommandInteraction,
+  MessageCollector,
+  TextBasedChannel,
+  Message,
+} from 'discord.js';
+import { ExtendedClient } from '../../types/ExtendedClient';
+import { Command } from '../../types/Command';
+import { CheerioAPI, load } from 'cheerio';
+
+interface Movies {
+  movies: {
+    title: string;
+    href: string;
+  }[];
+  numberOfPage: number;
+  currentPage: number;
+  error: boolean;
+}
+
+interface BatchLink {
+  name: string;
+  links: {
+    provider: string;
+    link: string;
+  }[];
+}
+
+interface EpisodeLink {
+  resolution: string;
+  list: {
+    episodeName: string;
+    links: {
+      provider: string;
+      link: string;
+    }[];
+  }[];
+}
+
+interface SeriesDownloadLinks {
+  batch: BatchLink[];
+  episodes: EpisodeLink[];
+}
+
+const command: Command = {
+  data: new SlashCommandBuilder()
+    .setName('movie_download')
+    .setDescription('Find download links for movies/series')
+    .addStringOption((option) =>
+      option.setName('title').setDescription('Movie title').setRequired(true)
+    ) as SlashCommandBuilder,
+  async execute(
+    interaction: CommandInteraction | ChatInputCommandInteraction,
+    client: ExtendedClient
+  ) {
+    const title = getTitleFromInteraction(interaction);
+    const movies = await fetchMovies(title);
+
+    if (movies.error) {
+      await interaction.reply('An error occurred while fetching the data');
+      return;
+    }
+
+    const embed = createEmbed(title, movies);
+    const row = createActionRow();
+
+    if (movies.movies.length > 0) {
+      await interaction.reply({
+        content: '**Choose the number:**',
+        embeds: [embed],
+        components: [row],
+        fetchReply: true,
+      });
+
+      createMessageCollector(interaction, movies);
+    } else {
+      await interaction.reply({ embeds: [embed] });
+    }
+  },
+};
+
+async function createMessageCollector(
+  interaction: CommandInteraction | ChatInputCommandInteraction,
+  movies: Movies
+) {
+  const collector = new MessageCollector(
+    interaction.channel as TextBasedChannel,
+    {
+      max: 1,
+      time: 60_000,
+      filter: (message) => message.author.id === interaction.user.id,
+    }
+  );
+
+  collector.on('collect', async (message) => {
+    await handleUserChoice(movies, message, interaction);
+  });
+
+  collector.on('end', async (collected) => {
+    if (collected.size === 0) {
+      await interaction.followUp('No response after 60 seconds');
+    }
+  });
+}
+
+async function handleUserChoice(
+  movies: Movies,
+  message: Message<boolean>,
+  interaction: CommandInteraction | ChatInputCommandInteraction
+) {
+  const choice = parseInt(message.content);
+
+  if (isNaN(choice)) {
+    await interaction.followUp('Invalid choice: must be a number');
+    return;
+  }
+
+  const movie = movies.movies[choice - 1];
+
+  if (!movie) {
+    await interaction.followUp('Invalid choice: out of range');
+    return;
+  }
+
+  const [isSeries] = await targetIsASeries(movie.href);
+
+  if (isSeries) {
+    const downloadLinks = (await fetchDownloadLinks(
+      movie.href
+    )) as SeriesDownloadLinks;
+    const embed = createSeriesEmbed(movie.title, downloadLinks);
+    await interaction.followUp({ embeds: [embed] });
+  } else {
+    const downloadLinks = await fetchDownloadLinks(movie.href);
+    // Handle movie download links
+  }
+}
+
+async function targetIsASeries(href: string): Promise<[boolean, CheerioAPI]> {
+  const response = await fetch(href);
+  const html = await response.text();
+  const $ = load(html);
+  return [$('table.download').length > 0, $];
+}
+
+async function fetchDownloadLinks(href: string) {
+  try {
+    const [isSeries, $] = await targetIsASeries(href);
+
+    if (isSeries) {
+      return fetchSeriesLinks($);
+    } else {
+      return fetchMovieLinks($);
+    }
+  } catch (error) {
+    console.error('Error fetching download links:', error);
+  }
+}
+
+function fetchSeriesLinks($: CheerioAPI): SeriesDownloadLinks {
+  const downloadLinks: SeriesDownloadLinks = {
+    batch: [],
+    episodes: [],
+  };
+
+  const tableTag = $('table.download');
+  const batchWrapperTag = tableTag.children().first();
+
+  batchWrapperTag.children().each((i, element) => {
+    if (i !== 0) {
+      const batchName = $(element).children().first().text();
+      const batchData: BatchLink = {
+        name: batchName,
+        links: [],
+      };
+      const batchLinksTags = [
+        $(element).children()[1],
+        $(element).children()[2],
+      ];
+      batchLinksTags.forEach((batchLinksTag) => {
+        $(batchLinksTag)
+          .children()
+          .each((_, element) => {
+            if (element) {
+              const aTag = $(element);
+              const link = aTag.attr('href') ?? 'https://130.185.118.151';
+              const provider = aTag.text();
+              batchData.links.push({ provider, link });
+            }
+          });
+      });
+
+      downloadLinks.batch.push(batchData);
+    }
+  });
+
+  tableTag.children().each((i, tbodyTag) => {
+    if (i !== 0) {
+      const resolutionWrapperTag = $(tbodyTag).children().first();
+      const resolution = $(resolutionWrapperTag)
+        .children()
+        .last()
+        .children()
+        .first()
+        .text();
+      const episodes: EpisodeLink = {
+        resolution,
+        list: [],
+      };
+
+      $(tbodyTag)
+        .children()
+        .each((j, episodeRowTag) => {
+          if (j !== 0) {
+            const episodeName = $(episodeRowTag).children().first().text();
+            const episodeData: {
+              episodeName: string;
+              links: { provider: string; link: string }[];
+            } = {
+              episodeName,
+              links: [],
+            };
+
+            const episodeLinksTags = [
+              $(episodeRowTag).children()[1],
+              $(episodeRowTag).children()[2],
+            ];
+
+            episodeLinksTags.forEach((episodeLinksTag) => {
+              if (episodeLinksTag) {
+                $(episodeLinksTag)
+                  .children()
+                  .each((_, aTag) => {
+                    if (aTag) {
+                      const provider = $(aTag).text();
+                      const link =
+                        $(aTag).attr('href') ?? 'https://130.185.118.151';
+                      episodeData.links.push({ provider, link });
+                    }
+                  });
+              }
+            });
+
+            episodes.list.push(episodeData);
+          }
+        });
+
+      downloadLinks.episodes.push(episodes);
+    }
+  });
+
+  return downloadLinks;
+}
+
+function fetchMovieLinks($: CheerioAPI) {
+  // Implement movie links fetching logic
+}
+
+function getTitleFromInteraction(interaction: CommandInteraction): string {
+  const titleOption = interaction.options.get('title');
+  return titleOption?.value as string;
+}
+
+async function fetchMovies(title: string, page: number = 1): Promise<Movies> {
+  const domain = '130.185.118.151';
+  const params =
+    page > 1
+      ? `page/${page}/?s=${title}&post_type=post`
+      : `?s=${title}&post_type=post`;
+  const URL = `https://${domain}/` + params;
+
+  try {
+    const response = await fetch(URL);
+    const html = await response.text();
+    return parseMovies(html);
+  } catch (error) {
+    console.error('Error fetching movies:', error);
+    return { movies: [], numberOfPage: 1, currentPage: 1, error: true };
+  }
+}
+
+function parseMovies(html: string): Movies {
+  const $ = load(html);
+  const movies: { title: string; href: string }[] = [];
+
+  $('#movies div:nth-child(2)')
+    .children()
+    .each((_, element) => {
+      const aTag = $(element).find('a');
+      const title = aTag.attr('title') as string;
+      const href = aTag.attr('href') as string;
+
+      if (title) {
+        movies.push({ title, href });
+      }
+    });
+
+  const pagesElement = $('#pagination > div > span.pages').text();
+  const [currentPage, numberOfPage] = parsePagination(pagesElement);
+
+  return { movies, numberOfPage, currentPage, error: false };
+}
+
+function parsePagination(pagesElement: string): [number, number] {
+  if (!pagesElement) return [1, 1];
+
+  const pagesData = pagesElement.split(' ');
+  const numberOfPage = parseInt(pagesData[3]);
+  const currentPage = parseInt(pagesData[1]);
+
+  return [currentPage, numberOfPage];
+}
+
+function createEmbed(title: string, movies: Movies): EmbedBuilder {
+  const titles = movies.movies.map((movie) => movie.title);
+  const listOfMovies = formatMovieList(titles);
+  const lengthOfTheLongestTitle = getLongestTitleLength(titles);
+  const embed = new EmbedBuilder().setColor(0x0099ff).setTitle('Results');
+
+  if (titles.length > 0) {
+    embed.setDescription(listOfMovies).addFields({
+      name: '─'.repeat(lengthOfTheLongestTitle),
+      value: `page ${movies.currentPage} of ${movies.numberOfPage}`,
+    });
+  } else {
+    embed.setDescription(`No results for: ${title}`);
+  }
+
+  return embed;
+}
+
+function formatMovieList(titles: string[]): string {
+  return titles.map((title, i) => `${i + 1}. ${title}`).join('\n');
+}
+
+function getLongestTitleLength(titles: string[]): number {
+  return Math.max(...titles.map((title) => title.length));
+}
+
+function createActionRow(): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('previous')
+      .setLabel('Previous')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('next')
+      .setLabel('Next')
+      .setStyle(ButtonStyle.Primary)
+  );
+}
+
+function createSeriesEmbed(
+  title: string,
+  downloadLinks: SeriesDownloadLinks
+): EmbedBuilder {
+  const embed = new EmbedBuilder()
+    .setTitle(title)
+    .setColor(0x0099ff)
+    .setDescription('Download links');
+
+  downloadLinks.batch.forEach((batch) => {
+    const links = batch.links.map((link) => `[${link.provider}](${link.link})`);
+    embed.addFields({ name: batch.name, value: links.join('\n') });
+  });
+
+  downloadLinks.episodes.forEach((episode) => {
+    const links = episode.list.map((episode) => {
+      const links = episode.links.map(
+        (link) => `[${link.provider}](${link.link})`
+      );
+      return `${episode.episodeName}\n${links.join('\n')}`;
+    });
+    embed.addFields({ name: episode.resolution, value: links.join('\n').slice(0, 1024) });
+  });
+
+  return embed;
+}
+
+export default command;
