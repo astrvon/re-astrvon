@@ -8,7 +8,7 @@ import {
 } from "discord.js";
 import type { Command } from "../../types/Command";
 import type { ExtendedClient } from "../../types/ExtendedClient";
-import Vibrant from "node-vibrant";
+import { Vibrant } from "node-vibrant/node";
 
 const command: Command = {
   data: new SlashCommandBuilder()
@@ -144,7 +144,7 @@ async function getDominantColor(url: string): Promise<number> {
   } catch (error) {
     console.error("Error extracting color:", error);
   }
-  return 0x0099ff; // Default color if extraction fails
+  return 0xff69b4;
 }
 
 export default command;

@@ -10,22 +10,22 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@vercel/node": "^3.2.23",
-    "discord-interactions": "^4.1.0",
-    "discord.js": "^14.16.3",
-    "dotenv": "^16.4.5",
-    "node-vibrant": "^3.2.1-alpha.1"
+    "@vercel/node": "^5.1.16",
+    "discord-interactions": "^4.3.0",
+    "discord.js": "^14.19.3",
+    "dotenv": "^16.5.0",
+    "node-vibrant": "4.0.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.13.0",
-    "@types/node": "^22.7.9",
-    "@typescript-eslint/eslint-plugin": "^8.11.0",
-    "@typescript-eslint/parser": "^8.11.0",
-    "eslint": "^9.13.0",
-    "nodemon": "^3.1.7",
+    "@eslint/js": "^9.27.0",
+    "@types/node": "^22.15.19",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "@typescript-eslint/parser": "^8.32.1",
+    "eslint": "^9.27.0",
+    "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
-    "typescript": "^5.6.3",
-    "typescript-eslint": "^8.11.0"
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.32.1"
   },
   "engines": {
     "node": ">=16.9.0"
