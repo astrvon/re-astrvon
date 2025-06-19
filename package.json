@@ -1,9 +1,9 @@
 {
-  "name": "re-astrvon",
+  "name": "nekumi",
   "version": "1.0.0",
   "main": "dist/index.js",
   "license": "MIT",
-  "description": "re-astrvon | Bot designed by @astrvon",
+  "description": "nekumi | Bot designed by @astrvon",
   "scripts": {
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",

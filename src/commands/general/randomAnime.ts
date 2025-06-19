@@ -2,6 +2,9 @@ import {
   SlashCommandBuilder,
   type CommandInteraction,
   EmbedBuilder,
+  MessageFlags,
+  GuildNSFWLevel,
+  TextChannel,
 } from "discord.js";
 import type { ExtendedClient } from "../../types/ExtendedClient";
 import type { Command } from "../../types/Command";
@@ -45,16 +48,33 @@ const command: Command = {
     ) as SlashCommandBuilder,
   async execute(
     interaction: CommandInteraction,
-    client: ExtendedClient
+    _client: ExtendedClient
   ): Promise<void> {
     if (!interaction.isChatInputCommand()) return;
-    await interaction.deferReply({ ephemeral: false });
 
     const artist: string | null = interaction.options.getString("artist");
     const tags: string | null = interaction.options.getString("tags");
     const withoutTags: string | null =
       interaction.options.getString("without_tags");
-    const rating: string = interaction.options.getString("rating") ?? "safe";
+    const rating: string | null = interaction.options.getString("rating");
+
+    if (rating && ["borderline", "explicit"].includes(rating)) {
+      const isNsfw =
+        (interaction.inGuild() && (interaction.channel as TextChannel).nsfw) ||
+        false;
+      if (!isNsfw) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.editReply({
+          content:
+            "rating can only be used in NSFW channels or with the `borderline` or `explicit` options.",
+        });
+        setTimeout(
+          (): Promise<void> => interaction.deleteReply().catch((): void => {}),
+          5000
+        );
+        return;
+      }
+    }
 
     const queryParams = new URLSearchParams();
     queryParams.append("limit", "1");
@@ -111,21 +131,21 @@ const command: Command = {
     if (errorMessage || !imageData) {
       embed
         .setTitle("Error")
-        .setDescription(errorMessage || "No image data received.");
+        .setDescription(errorMessage ?? "No image data received.");
     } else {
       embed
-        .setTitle("Random Anime Image")
+        .setTitle("Here's a random anime image for you!")
         .setImage(imageData.url)
         .addFields(
-          { name: "Rating", value: imageData.rating || "N/A", inline: true },
+          { name: "Rating", value: imageData.rating ?? "N/A", inline: true },
           {
             name: "Tags",
-            value: imageData.tags?.join(", ") || "None",
+            value: imageData.tags?.join(", ") ?? "None",
             inline: true,
           },
           {
             name: "Artist",
-            value: imageData.artist_name || "Unknown",
+            value: imageData.artist_name ?? "Unknown",
             inline: true,
           }
         );
@@ -139,6 +159,14 @@ const command: Command = {
       }
     }
 
+    await interaction.deferReply({
+      flags:
+        interaction.inGuild() &&
+        (interaction.channel as TextChannel).nsfw === false &&
+        ["borderline", "explicit"].includes(imageData?.rating)
+          ? MessageFlags.Ephemeral
+          : undefined,
+    });
     await interaction.editReply({ embeds: [embed] });
   },
 };
