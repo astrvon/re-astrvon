@@ -1,19 +1,37 @@
 {
   "compilerOptions": {
-    "target": "ES2021",
-    "module": "commonjs",
-    "rootDir": "./src",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "outDir": "./dist",
-    "strict": true,
+    "rootDir": "./src",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictBindCallApply": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "incremental": true,
+    "paths": {
+      "@/commands/*": ["./src/commands/*"],
+      "@/events/*": ["./src/events/*"],
+      "@/functions/*": ["./src/functions/*"],
+      "@/loaders/*": ["./src/loaders/*"],
+      "@/types/*": ["./src/types/*"],
+    },
   },
-  "include": [
-    "src/**/*",
-    "eslint.config.js"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["src", "eslint.config.js"],
+  "exclude": ["node_modules", "dist"],
 }

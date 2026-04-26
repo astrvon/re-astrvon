@@ -1,61 +1,100 @@
-import eslint from '@eslint/js';
-import tseslint from 'typescript-eslint';
+// eslint.config.js
+const tseslint = require('@typescript-eslint/eslint-plugin');
+const tsParser = require('@typescript-eslint/parser');
+const prettier = require('eslint-plugin-prettier');
+const unusedImports = require('eslint-plugin-unused-imports');
+const importPlugin = require('eslint-plugin-import');
+const prettierConfig = require('eslint-config-prettier');
 
-export default tseslint.config(
-    eslint.configs.recommended,
-    ...tseslint.configs.recommended,
-    {
-        languageOptions: {
-            ecmaVersion: 2021,
-            sourceType: 'module',
-            parser: tseslint.parser,
-            parserOptions: {
-                project: './tsconfig.json',
-            },
-        },
-        env: {
-            node: true,
-            es6: true,
-        },
-        rules: {
-            'arrow-spacing': ['warn', {before: true, after: true}],
-            'brace-style': ['error', 'stroustrup', {allowSingleLine: true}],
-            'comma-dangle': ['error', 'always-multiline'],
-            'comma-spacing': 'error',
-            'comma-style': 'error',
-            'curly': ['error', 'multi-line', 'consistent'],
-            'dot-location': ['error', 'property'],
-            'handle-callback-err': 'off',
-            'indent': ['error', 4],
-            'keyword-spacing': 'error',
-            'max-nested-callbacks': ['error', {max: 4}],
-            'max-statements-per-line': ['error', {max: 2}],
-            'no-console': 'off',
-            'no-empty-function': 'error',
-            'no-floating-decimal': 'error',
-            'no-inline-comments': 'error',
-            'no-lonely-if': 'error',
-            'no-multi-spaces': 'error',
-            'no-multiple-empty-lines': ['error', {max: 2, maxEOF: 1, maxBOF: 0}],
-            'no-shadow': 'off',
-            '@typescript-eslint/no-shadow': ['error'],
-            'no-trailing-spaces': ['error'],
-            'no-var': 'error',
-            'object-curly-spacing': ['error', 'always'],
-            'prefer-const': 'error',
-            'quotes': ['error', 'single'],
-            'semi': ['error', 'always'],
-            'space-before-blocks': 'error',
-            'space-before-function-paren': ['error', {
-                anonymous: 'never',
-                named: 'never',
-                asyncArrow: 'always',
-            }],
-            'space-in-parens': 'error',
-            'space-infix-ops': 'error',
-            'space-unary-ops': 'error',
-            'spaced-comment': 'error',
-            'yoda': 'error',
-        },
+module.exports = [
+  // Global ignores
+  {
+    ignores: ['dist/**', 'node_modules/**', 'eslint.config.js'],
+  },
+
+  // Base config for all TS/JS files
+  {
+    files: ['**/*.ts', '**/*.tsx', '**/*.js'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: ['./tsconfig.json', './tsconfig.build.json'],
+        tsconfigRootDir: __dirname,
+        sourceType: 'module',
+      },
+      globals: {
+        // node
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        exports: 'writable',
+        module: 'writable',
+        require: 'readonly',
+        process: 'readonly',
+        console: 'readonly',
+        // jest
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        jest: 'readonly',
+      },
     },
-);
+    plugins: {
+      '@typescript-eslint': tseslint,
+      'unused-imports': unusedImports,
+      import: importPlugin,
+      prettier,
+    },
+    rules: {
+      // Prettier
+      ...prettierConfig.rules,
+      'prettier/prettier': 'error',
+
+      // TypeScript
+      ...tseslint.configs['recommended'].rules,
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+
+      // Unused imports
+      'unused-imports/no-unused-imports': 'error',
+
+      // Import order
+      'import/order': [
+        'error',
+        {
+          groups: [
+            'builtin',
+            'external',
+            'internal',
+            'parent',
+            'sibling',
+            'index',
+          ],
+          'newlines-between': 'always',
+          alphabetize: { order: 'asc', caseInsensitive: true },
+          pathGroups: [
+            {
+              pattern: '@/**',
+              group: 'internal',
+              position: 'before',
+            },
+          ],
+          pathGroupsExcludedImportTypes: ['builtin'],
+        },
+      ],
+    },
+  },
+];
